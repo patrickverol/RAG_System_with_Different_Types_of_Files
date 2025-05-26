@@ -1,0 +1,117 @@
+# RAG Project - Docker Compose Configuration
+# This file contains the configuration for the RAG project containers:
+# - Backend (FastAPI)
+# - Qdrant (Vector Database)
+# - Frontend (Streamlit)
+
+# version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: backend.Dockerfile
+    container_name: rag_backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - rag_network
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    environment:
+      - PYTHONUNBUFFERED=1
+      - NVIDIA_KEY=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
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: frontend.Dockerfile
+    container_name: rag_frontend
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "8501:8501"
+    networks:
+      - rag_network
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      - PYTHONUNBUFFERED=1
+      - BACKEND_URL=http://backend:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: rag_qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    networks:
+      - rag_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:13
+    container_name: airflow_postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    ports:
+      - "5432:5432"
+    networks:
+      - rag_network
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - '3000:3000'
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - grafana-plugins:/var/lib/grafana/plugins
+    networks:
+      - rag_network 
+    depends_on:
+      - postgres
+
+networks:
+  rag_network:
+    driver: bridge
+
+volumes:
+  qdrant_data: 
+  postgres-db-volume:
+  grafana-storage:
+  grafana-plugins:
