@@ -16,6 +16,9 @@ import json
 # Importa o módulo time
 import time
 
+# Importa o módulo os para manipulação de variáveis de ambiente
+import os
+
 # Filtra warnings
 import warnings
 warnings.filterwarnings('ignore')
@@ -23,6 +26,8 @@ warnings.filterwarnings('ignore')
 # Importa módulos para avaliação e feedback
 from dsallm import dsa_gera_documento_id, dsa_captura_user_input, dsa_captura_user_feedback
 
+# Importa o módulo de storage
+from storage import get_storage
 
 def main():
     # Configurando o título da página e outras configurações (favicon)
@@ -31,6 +36,30 @@ def main():
     # Define o título do aplicativo Streamlit
     st.title('_:green[DSA - Projeto 10]_')
     st.title('_:blue[Busca com IA Generativa e RAG]_')
+
+    # Configuração do storage
+    storage_config = {
+        'storage_type': 'http',
+        'base_url': 'http://document_storage:8080'
+    }
+    
+    # Se for S3, adiciona as configurações específicas
+    if storage_config['storage_type'] == 's3':
+        storage_config.update({
+            'bucket_name': os.getenv('S3_BUCKET_NAME'),
+            'region_name': os.getenv('AWS_REGION'),
+            'endpoint_url': os.getenv('S3_ENDPOINT_URL')
+        })
+    # Se for HTTP, adiciona a URL base
+    elif storage_config['storage_type'] == 'http':
+        print(f"Using document storage URL: {storage_config['base_url']}")  # Debug log
+
+    # Inicializa o storage
+    storage = get_storage(**storage_config)
+    
+    # Only print base_url for HTTP storage
+    if storage_config['storage_type'] == 'http':
+        print(f"Using document storage URL: {storage.base_url}")
 
     # Inicializando variáveis de sessão
     if 'result' not in st.session_state:
@@ -103,19 +132,22 @@ def main():
             
             # Encontra todas as referências a documentos na resposta
             m = rege.findall(answer)
-            
+            print(f"Found document references: {m}")  # Debug log
+
             # Inicializa uma lista para armazenar os números dos documentos
             num = []
             
             # Extrai os números dos documentos das referências encontradas
             for n in m:
                 num = num + [int(s) for s in re.findall(r'\b\d+\b', n)]
+            print(f"Extracted document numbers: {num}")  # Debug log
 
             # Exibe a resposta da pergunta usando markdown
             st.markdown(answer)
             
             # Obtém os documentos do contexto da resposta
             documents = response_data.get('context', [])
+            print(f"Documents from context: {documents}")  # Debug log
             
             # Inicializa uma lista para armazenar os documentos que serão exibidos
             show_docs = []
@@ -124,27 +156,63 @@ def main():
             for n in num:
                 for doc in documents:
                     if int(doc['id']) == n:
+                        # Ensure the document path is relative to the documents directory
+                        if doc['path'].startswith('/'):
+                            doc['path'] = doc['path'][1:]  # Remove leading slash
                         show_docs.append(doc)
-                        
+            print(f"Documents to show: {show_docs}")  # Debug log
+            
             # Inicializa uma variável para o identificador dos botões de download
             dsa_id = 10231718414897291
-            
+
             # Exibe os documentos expandidos com botões de download
             for doc in show_docs:
-                
                 # Cria um expansor para cada documento
                 with st.expander(str(doc['id'])+" - "+doc['path']):
-                    
                     # Exibe o conteúdo do documento
                     st.write(doc['content'])
                     
-                    # Abre o arquivo do documento e cria um botão de download
-                    with open(doc['path'], 'rb') as f:
+                    # Obtém a URL do documento do storage
+                    try:
+                        # Ensure the document path is relative and properly formatted
+                        doc_path = doc['path'].lstrip('/')
+                        print(f"Getting URL for document path: {doc_path}")
+                        doc_url = storage.get_document_url(doc_path)
+                        print(f"Generated URL: {doc_url}")
                         
-                        st.download_button("Download do Arquivo", f, file_name = doc['path'].split('/')[-1], key = dsa_id)
+                        # Get document content
+                        temp_file = storage.get_document(doc_path)
+                        print(f"Successfully retrieved document content")
                         
-                        # Incrementa o identificador do botão para download
-                        dsa_id = dsa_id + 1
+                        # Read the file content in binary mode
+                        with open(temp_file, 'rb') as f:
+                            doc_content = f.read()
+                        
+                        # Determine MIME type based on file extension
+                        file_ext = os.path.splitext(doc_path)[1].lower()
+                        mime_type = {
+                            '.pdf': 'application/pdf',
+                            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            '.doc': 'application/msword',
+                            '.txt': 'text/plain',
+                            '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                            '.ppt': 'application/vnd.ms-powerpoint'
+                        }.get(file_ext, 'application/octet-stream')
+                        
+                        # Create download button with proper MIME type
+                        st.download_button(
+                            label=f"Download {os.path.basename(doc_path)}",
+                            data=doc_content,
+                            file_name=os.path.basename(doc_path),
+                            mime=mime_type
+                        )
+                        
+                        # Clean up temporary file
+                        os.unlink(temp_file)
+                        
+                    except Exception as e:
+                        print(f"Error downloading {doc_path}: {str(e)}")
+                        st.error(f"Error downloading document: {str(e)}")
 
             # Adiciona avaliação e feedback
             try:

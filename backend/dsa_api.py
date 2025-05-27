@@ -78,7 +78,23 @@ app = FastAPI()
 # Define a rota raiz com o método GET
 @app.get("/")
 async def root():
-    return {"message": "DSA Projeto 9"}
+    # Check Qdrant collection status
+    try:
+        collection_info = client.get_collection(collection_name)
+        points_count = client.count(collection_name).count
+        return {
+            "message": "DSA Projeto 9",
+            "collection_status": {
+                "name": collection_name,
+                "points_count": points_count,
+                "status": collection_info.status
+            }
+        }
+    except Exception as e:
+        return {
+            "message": "DSA Projeto 9",
+            "error": f"Failed to get collection status: {str(e)}"
+        }
 
 # Define a rota /dsa_api com o método POST
 @app.post("/dsa_api")
@@ -89,6 +105,7 @@ async def dsa_api(item: Item):
     
     # Realiza a busca de similaridade
     search_result = qdrant.similarity_search(query = query, k = 10)
+    print(f"Similarity search results: {search_result}")  # Debug log
     
     # Inicializa a lista de resultados, contexto e mapeamento
     list_res = []
@@ -97,10 +114,21 @@ async def dsa_api(item: Item):
     
     # Constrói o contexto e a lista de resultados
     for i, res in enumerate(search_result):
-        context += f"{i}\n{res.page_content}\n\n"
-        mappings[i] = res.metadata.get("path")
-        list_res.append({"id": i, "path": res.metadata.get("path"), "content": res.page_content})
+        print(f"Processing result {i}: {res.page_content[:100]}...")  # Debug log
+        # Adiciona o conteúdo ao contexto
+        context += f"[{i}]\n{res.page_content}\n\n"
+        # Adiciona o mapeamento do ID para o caminho do documento
+        mappings[i] = res.metadata.get("path", "")
+        # Adiciona o resultado à lista
+        list_res.append({
+            "id": i,
+            "path": res.metadata.get("path", ""),
+            "content": res.page_content
+        })
 
+    print(f"Final context: {context[:200]}...")  # Debug log
+    print(f"Final list_res: {list_res}")  # Debug log
+    
     # Define a mensagem de sistema
     rolemsg = {"role": "system",
                "content": "Responda à pergunta do usuário usando documentos fornecidos no contexto. No contexto estão documentos que devem conter uma resposta. Sempre faça referência ao ID do documento (entre colchetes, por exemplo [0],[1]) do documento que foi usado para fazer uma consulta. Use quantas citações e documentos forem necessários para responder à pergunta."}
@@ -110,24 +138,32 @@ async def dsa_api(item: Item):
     
     # Verifica se a API da Nvidia está sendo usada
     if use_nvidia_api:
-
         # Cria a instância do LLM usando a API da Nvidia
-        resposta = client_ai.chat.completions.create(model = "meta/llama3-70b-instruct",
-                                                     messages = messages,
-                                                     temperature = 0.5,
-                                                     top_p = 1,
-                                                     max_tokens = 1024,
-                                                     stream = False)
+        resposta = client_ai.chat.completions.create(
+            model = "meta/llama3-70b-instruct",
+            messages = messages,
+            temperature = 0.5,
+            top_p = 1,
+            max_tokens = 1024,
+            stream = False
+        )
         
         # Obtém a resposta do LLM
         response = resposta.choices[0].message.content
-    
     else:
-
         # Imprime uma mensagem indicando que não é possível usar um LLM
         print("Não é possível usar um LLM.")
+        response = "Erro: LLM não disponível."
     
-    return {"context": list_res, "answer": response}
+    # Debug log
+    print(f"Response: {response}")
+    print(f"Documents: {list_res}")
+    
+    return {
+        "context": list_res,
+        "answer": response,
+        "mappings": mappings
+    }
 
 
 

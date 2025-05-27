@@ -3,6 +3,7 @@
 # - Backend (FastAPI)
 # - Qdrant (Vector Database)
 # - Frontend (Streamlit)
+# - Document Storage (Optional, only used with HTTP storage type)
 
 # version: '3.8'
 
@@ -14,6 +15,7 @@ services:
     container_name: rag_backend
     volumes:
       - ./backend:/app
+      - ./document_storage/documents:/app/documents
     ports:
       - "8000:8000"
     networks:
@@ -24,6 +26,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - NVIDIA_KEY=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
+      - STORAGE_TYPE=${STORAGE_TYPE:-local}
+      - DOCUMENTS_PATH=${DOCUMENTS_PATH:-/app/documents}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-}
+      - AWS_REGION=${AWS_REGION:-}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-}
+      - DOCUMENT_STORAGE_URL=${DOCUMENT_STORAGE_URL:-http://document_storage:8080}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
       interval: 30s
@@ -48,12 +56,37 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - BACKEND_URL=http://backend:8000
+      - STORAGE_TYPE=${STORAGE_TYPE:-local}
+      - DOCUMENTS_PATH=${DOCUMENTS_PATH:-/app/documents}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-}
+      - AWS_REGION=${AWS_REGION:-}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL:-}
+      - DOCUMENT_STORAGE_URL=${DOCUMENT_STORAGE_URL:-http://document_storage:8080}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8501/"]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
+
+  document_storage:
+    build:
+      context: ./document_storage
+      dockerfile: Dockerfile
+    container_name: rag_document_storage
+    volumes:
+      - ./document_storage:/app
+      - ./document_storage/documents:/app/documents
+    ports:
+      - "8080:8080"
+    networks:
+      - rag_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   qdrant:
     image: qdrant/qdrant:latest

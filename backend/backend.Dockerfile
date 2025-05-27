@@ -7,6 +7,9 @@ WORKDIR /app
 # Install curl for healthchecks
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
+# Create documents directory
+RUN mkdir -p /app/documents
+
 # Copy requirements file
 COPY requirements.txt .
 
@@ -20,4 +23,4 @@ COPY . .
 EXPOSE 8000
 
 # Command to run the FastAPI application
-CMD ["python", "-u", "dsa_start_api.py"] 
+CMD ["uvicorn", "dsa_api:app", "--host", "0.0.0.0", "--port", "8000"]
