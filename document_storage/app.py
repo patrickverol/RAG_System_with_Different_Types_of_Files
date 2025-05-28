@@ -105,7 +105,7 @@ async def get_document(document_path: str):
             raise HTTPException(status_code=404, detail=f"Document not found: {document_path}")
             
         logger.info(f"Returning file: {full_path}")
-        return FileResponse(full_path)
+        return FileResponse(full_path, filename=os.path.basename(document_path))
         
     except Exception as e:
         logger.error(f"Error retrieving document: {str(e)}")

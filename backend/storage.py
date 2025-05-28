@@ -11,6 +11,7 @@ import requests
 from pathlib import Path
 import boto3
 from botocore.exceptions import ClientError
+from typing import List
 
 
 class StorageInterface(ABC):
@@ -20,17 +21,17 @@ class StorageInterface(ABC):
     """
     
     @abstractmethod
-    def list_documents(self):
+    def list_documents(self) -> List[str]:
         """
         List all available documents in the storage.
         
         Returns:
-            list: List of document paths relative to the storage root
+            List[str]: List of document paths relative to the storage root
         """
         pass
 
     @abstractmethod
-    def get_document(self, document_path):
+    def get_document(self, document_path: str) -> str:
         """
         Retrieve a document and return its local path.
         
@@ -47,7 +48,7 @@ class StorageInterface(ABC):
         pass
 
     @abstractmethod
-    def get_document_url(self, document_path):
+    def get_document_url(self, document_path: str) -> str:
         """
         Get a URL to access the document.
         
@@ -66,7 +67,7 @@ class LocalStorage(StorageInterface):
     Handles documents stored in a local directory.
     """
     
-    def __init__(self, base_path):
+    def __init__(self, base_path: str):
         """
         Initialize local storage with base path.
         
@@ -75,12 +76,12 @@ class LocalStorage(StorageInterface):
         """
         self.base_path = Path(base_path)
 
-    def list_documents(self):
+    def list_documents(self) -> List[str]:
         """
         List all documents in the local storage directory.
         
         Returns:
-            list: List of document paths relative to base_path
+            List[str]: List of document paths relative to base_path
         """
         documents = []
         for root, _, files in os.walk(self.base_path):
@@ -89,7 +90,7 @@ class LocalStorage(StorageInterface):
                 documents.append(rel_path)
         return documents
 
-    def get_document(self, document_path):
+    def get_document(self, document_path: str) -> str:
         """
         Get the full path to a document in local storage.
         
@@ -107,7 +108,7 @@ class LocalStorage(StorageInterface):
             raise FileNotFoundError(f"Document not found: {document_path}")
         return str(full_path)
 
-    def get_document_url(self, document_path):
+    def get_document_url(self, document_path: str) -> str:
         """
         Get a URL to access the document.
         
@@ -126,7 +127,7 @@ class S3Storage(StorageInterface):
     Handles documents stored in an S3 bucket.
     """
     
-    def __init__(self, bucket_name, region_name=None, endpoint_url=None):
+    def __init__(self, bucket_name: str, region_name: str = None, endpoint_url: str = None):
         """
         Initialize S3 storage with bucket configuration.
         
@@ -142,12 +143,12 @@ class S3Storage(StorageInterface):
             endpoint_url=endpoint_url
         )
 
-    def list_documents(self):
+    def list_documents(self) -> List[str]:
         """
         List all documents in the S3 bucket.
         
         Returns:
-            list: List of document keys in the bucket
+            List[str]: List of document keys in the bucket
             
         Raises:
             Exception: If listing documents fails
@@ -158,7 +159,7 @@ class S3Storage(StorageInterface):
         except ClientError as e:
             raise Exception(f"Error listing documents: {str(e)}")
 
-    def get_document(self, document_path):
+    def get_document(self, document_path: str) -> str:
         """
         Download a document from S3 to a temporary file.
         
@@ -181,7 +182,7 @@ class S3Storage(StorageInterface):
         except ClientError as e:
             raise Exception(f"Error downloading document: {str(e)}")
 
-    def get_document_url(self, document_path):
+    def get_document_url(self, document_path: str) -> str:
         """
         Generate a presigned URL for accessing the document.
         
@@ -215,7 +216,7 @@ class HTTPStorage(StorageInterface):
     Handles documents served through an HTTP API.
     """
     
-    def __init__(self, base_url):
+    def __init__(self, base_url: str = 'http://document_storage:8080'):
         """
         Initialize HTTP storage with base URL.
         
@@ -223,22 +224,32 @@ class HTTPStorage(StorageInterface):
             base_url (str): Base URL of the document storage service
         """
         self.base_url = base_url.rstrip('/')
+        print(f"Initialized HTTPStorage with base URL: {self.base_url}")
 
-    def list_documents(self):
+    def get_document_url(self, path: str) -> str:
         """
-        List all documents available through the HTTP API.
+        Get the URL to access a document.
         
-        Returns:
-            list: List of document paths
+        Args:
+            path (str): Path to the document
             
-        Raises:
-            requests.exceptions.RequestException: If API request fails
+        Returns:
+            str: Full URL to access the document
         """
-        response = requests.get(f"{self.base_url}/documents")
-        response.raise_for_status()
-        return response.json()
+        # Ensure path is relative and remove leading slashes
+        path = path.lstrip('/')
+        print(f"Original path: {path}")
+        
+        # URL encode each part of the path, preserving forward slashes
+        encoded_path = '/'.join(requests.utils.quote(part, safe='') for part in path.split('/'))
+        print(f"Encoded path: {encoded_path}")
+        
+        # Construct full URL with proper scheme
+        url = f"{self.base_url}/documents/{encoded_path}"
+        print(f"Generated document URL: {url}")
+        return url
 
-    def get_document(self, document_path):
+    def get_document(self, document_path: str) -> str:
         """
         Download a document from the HTTP API to a temporary file.
         
@@ -249,31 +260,61 @@ class HTTPStorage(StorageInterface):
             str: Path to the temporary file containing the document
             
         Raises:
-            requests.exceptions.RequestException: If download fails
+            Exception: If download fails or document not found
         """
-        response = requests.get(f"{self.base_url}/documents/{document_path}")
-        response.raise_for_status()
-        
-        # Save to temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False)
-        temp_file.write(response.content)
-        temp_file.close()
-        return temp_file.name
-
-    def get_document_url(self, document_path):
-        """
-        Get the URL to access a document.
-        
-        Args:
-            document_path (str): Path to the document
+        try:
+            # Get the URL for the document
+            url = self.get_document_url(document_path)
+            print(f"Attempting to download document from URL: {url}")
             
-        Returns:
-            str: Full URL to access the document
+            # Make the request
+            response = requests.get(url)
+            print(f"Response status code: {response.status_code}")
+            print(f"Response headers: {response.headers}")
+            
+            if response.status_code == 404:
+                print(f"Document not found at URL: {url}")
+                print(f"Response content: {response.text}")
+                raise Exception(f"Document not found: {document_path}")
+            
+            # Create a temporary file with the correct extension
+            file_ext = os.path.splitext(document_path)[1]
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_ext)
+            temp_file.write(response.content)
+            temp_file.close()
+            print(f"Document downloaded successfully to: {temp_file.name}")
+            
+            # Return the temporary file path
+            return temp_file.name
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Request error: {str(e)}")
+            raise Exception(f"Error downloading document: {str(e)}")
+        except Exception as e:
+            print(f"Unexpected error: {str(e)}")
+            raise Exception(f"Error downloading document: {str(e)}")
+
+    def list_documents(self) -> List[str]:
         """
-        return f"{self.base_url}/documents/{document_path}"
+        List all documents available through the HTTP API.
+        
+        Returns:
+            List[str]: List of document paths
+            
+        Raises:
+            Exception: If API request fails
+        """
+        try:
+            response = requests.get(f"{self.base_url}/documents")
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise Exception(f"Error listing documents: {response.text}")
+        except Exception as e:
+            raise Exception(f"Error listing documents: {str(e)}")
 
 
-def get_storage(storage_type, **kwargs):
+def get_storage(storage_type: str, **kwargs) -> StorageInterface:
     """
     Factory function to create storage instances.
     

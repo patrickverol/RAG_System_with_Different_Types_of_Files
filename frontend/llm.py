@@ -6,10 +6,10 @@ This module handles document ID generation, user input capture, and feedback col
 import hashlib
 
 # Import database connection function
-from dsaconnection import postgre_connection
+from connection import postgre_connection
 
 
-def dsa_gera_documento_id(userQuery: str, answer: str) -> str:
+def gera_documento_id(userQuery: str, answer: str) -> str:
     """
     Generate a unique document ID by combining user query and generated answer.
     
@@ -36,7 +36,7 @@ def dsa_gera_documento_id(userQuery: str, answer: str) -> str:
     return document_id
 
 
-def dsa_captura_user_input(docId: str, userQuery: str, result: str, llmScore: float, responseTime: float) -> str:
+def captura_user_input(docId: str, userQuery: str, result: str, llmScore: float, responseTime: float) -> str:
     """
     Capture user input and save evaluation data to database.
     
@@ -51,7 +51,7 @@ def dsa_captura_user_input(docId: str, userQuery: str, result: str, llmScore: fl
         str: Confirmation message
         
     Note:
-        Creates dsa_avaliacao table if it doesn't exist
+        Creates avaliacao table if it doesn't exist
     """
     
     # Establish database connection
@@ -60,7 +60,7 @@ def dsa_captura_user_input(docId: str, userQuery: str, result: str, llmScore: fl
     try:
         # SQL query to create evaluation table if not exists
         create = """
-            CREATE TABLE dsa_avaliacao (
+            CREATE TABLE avaliacao (
                 id SERIAL PRIMARY KEY,
                 doc_id VARCHAR(10) NOT NULL,
                 user_input TEXT NOT NULL,
@@ -82,7 +82,7 @@ def dsa_captura_user_input(docId: str, userQuery: str, result: str, llmScore: fl
     try:
         # SQL query to insert evaluation data
         sql = f"""
-            INSERT INTO dsa_avaliacao
+            INSERT INTO avaliacao
             (doc_id, user_input, result, llm_score, response_time)
             VALUES
             ('{docId}', '{userQuery}', '{result}', {llmScore}, {responseTime})
@@ -104,7 +104,7 @@ def dsa_captura_user_input(docId: str, userQuery: str, result: str, llmScore: fl
     return "Dados de Avaliação Inseridos"
 
 
-def dsa_captura_user_feedback(docId: str, userQuery: str, result: str, feedback: bool) -> str:
+def captura_user_feedback(docId: str, userQuery: str, result: str, feedback: bool) -> str:
     """
     Capture user feedback and save to database.
     
@@ -118,7 +118,7 @@ def dsa_captura_user_feedback(docId: str, userQuery: str, result: str, feedback:
         str: Confirmation message
         
     Note:
-        Creates dsa_feedback table if it doesn't exist
+        Creates feedback table if it doesn't exist
     """
     
     # Establish database connection
@@ -127,7 +127,7 @@ def dsa_captura_user_feedback(docId: str, userQuery: str, result: str, feedback:
     try:
         # SQL query to create feedback table if not exists
         create = """
-            CREATE TABLE dsa_feedback (
+            CREATE TABLE feedback (
                 id SERIAL PRIMARY KEY,
                 doc_id VARCHAR(10) NOT NULL,
                 user_input TEXT NOT NULL,
@@ -148,7 +148,7 @@ def dsa_captura_user_feedback(docId: str, userQuery: str, result: str, feedback:
     try:
         # SQL query to insert feedback data
         sql = f"""
-            INSERT INTO dsa_feedback
+            INSERT INTO feedback
             (doc_id, user_input, result, is_satisfied)
             VALUES
             ('{docId}', '{userQuery}', '{result}', {feedback})

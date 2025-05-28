@@ -14,7 +14,7 @@ RUN mkdir -p /app/logs && chmod 777 /app/logs
 COPY requirements.txt .
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout 1000 -r requirements.txt
 
 # Copy the rest of the application
 COPY . .
@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 8501
 
 # Command to run the Streamlit application
-CMD ["streamlit", "run", "dsa_web_app.py", "--server.address", "0.0.0.0"] 
+CMD ["streamlit", "run", "web_app.py", "--server.address", "0.0.0.0"] 

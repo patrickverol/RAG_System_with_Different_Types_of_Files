@@ -14,11 +14,12 @@ load_dotenv()
 # Import FastAPI class from fastapi module to create the API
 from fastapi import FastAPI
 
-# Import Qdrant class from langchain_qdrant module to instantiate the vector database
-from langchain_qdrant import Qdrant
+# Import QdrantVectorStore class from langchain_qdrant module to instantiate the vector database
+from langchain_qdrant import QdrantVectorStore
 
 # Import QdrantClient class from qdrant_client module to connect to the vector database
 from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams
 
 # Import BaseModel class from pydantic module to validate data sent to the API
 from pydantic import BaseModel
@@ -70,10 +71,23 @@ else:
 client = QdrantClient("http://qdrant:6333")
 
 # Define collection name
-collection_name = "DSAVectorDB"
+collection_name = "RAGVectorDB"
+
+# Create collection if it doesn't exist
+if not client.collection_exists(collection_name):
+    print(f"Creating collection: {collection_name}")
+    client.create_collection(
+        collection_name,
+        vectors_config=VectorParams(size=768, distance=Distance.COSINE)
+    )
 
 # Create Qdrant instance to send data to vector database
-qdrant = Qdrant(client, collection_name, hf)
+qdrant = QdrantVectorStore(
+    client=client,
+    collection_name=collection_name,
+    embedding=hf,
+    distance=Distance.COSINE
+)
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -87,7 +101,7 @@ async def root():
         collection_info = client.get_collection(collection_name)
         points_count = client.count(collection_name).count
         return {
-            "message": "DSA Project 9",
+            "message": "RAG Project",
             "collection_status": {
                 "name": collection_name,
                 "points_count": points_count,
@@ -96,13 +110,13 @@ async def root():
         }
     except Exception as e:
         return {
-            "message": "DSA Project 9",
+            "message": "RAG Project",
             "error": f"Failed to get collection status: {str(e)}"
         }
 
-# Define /dsa_api route with POST method
-@app.post("/dsa_api")
-async def dsa_api(item: Item):
+# Define /rag_api route with POST method
+@app.post("/rag_api")
+async def rag_api(item: Item):
 
     # Get query from item
     query = item.query

@@ -27,7 +27,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # Import evaluation and feedback modules
-from dsallm import dsa_gera_documento_id, dsa_captura_user_input, dsa_captura_user_feedback
+from llm import gera_documento_id, captura_user_input, captura_user_feedback
 
 # Import storage module
 from storage import get_storage
@@ -40,10 +40,10 @@ def main():
     """
     
     # Configure page title and settings
-    st.set_page_config(page_title="DSA Projeto 10", page_icon=":100:", layout="centered")
+    st.set_page_config(page_title="RAG Project", page_icon=":100:", layout="centered")
 
     # Set application title
-    st.title('_:green[DSA - Projeto 10]_')
+    st.title('_:green[RAG - Project]_')
     st.title('_:blue[Busca com IA Generativa e RAG]_')
 
     # Configure storage
@@ -93,7 +93,7 @@ def main():
         st.write("A pergunta foi: \"", question+"\"")
         
         # Define API URL
-        url = "http://backend:8000/dsa_api"
+        url = "http://backend:8000/rag_api"
 
         # Create JSON payload
         payload = json.dumps({"query": question})
@@ -226,10 +226,10 @@ def main():
             # Add evaluation and feedback
             try:
                 # Generate document ID
-                docId = dsa_gera_documento_id(question, answer)
+                docId = gera_documento_id(question, answer)
                 
                 # Capture user input
-                dsa_captura_user_input(
+                captura_user_input(
                     docId,
                     question.replace("'", ""), 
                     answer, 
@@ -260,12 +260,12 @@ def main():
             feedback_col1, feedback_col2 = st.columns(2)
             with feedback_col1:
                 if st.button("Satisfeito"):
-                    dsa_captura_user_feedback(st.session_state.docId, st.session_state.userInput, st.session_state.result, True)
+                    captura_user_feedback(st.session_state.docId, st.session_state.userInput, st.session_state.result, True)
                     st.session_state.feedbackSubmitted = True
                     st.success("Feedback registrado: Satisfeito")
             with feedback_col2:
                 if st.button("Não Satisfeito"):
-                    dsa_captura_user_feedback(st.session_state.docId, st.session_state.userInput, st.session_state.result, False)
+                    captura_user_feedback(st.session_state.docId, st.session_state.userInput, st.session_state.result, False)
                     st.session_state.feedbackSubmitted = True
                     st.warning("Feedback registrado: Não Satisfeito")
 
