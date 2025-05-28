@@ -1,89 +1,93 @@
-# Projeto 9 - IA Generativa e RAG Para App de Sistema Inteligente de Busca em Documentos - Backend e API
-# Módulo da API
+"""
+API Module
+This module implements the FastAPI endpoints for the RAG system.
+It handles document queries and provides responses using the RAG system.
+"""
 
-# Importa o módulo os
+# Import os module
 import os
 from dotenv import load_dotenv
 
-# Carrega as variáveis de ambiente do arquivo .env
+# Load environment variables from .env file
 load_dotenv()
 
-# Importa a classe FastAPI do módulo fastapi para criar a API
+# Import FastAPI class from fastapi module to create the API
 from fastapi import FastAPI
 
-# Importa a classe Qdrant do módulo langchain_qdrant para instanciar o banco vetorial
+# Import Qdrant class from langchain_qdrant module to instantiate the vector database
 from langchain_qdrant import Qdrant
 
-# Importa a classe QdrantClient do módulo qdrant_client para conectar no banco vetorial
+# Import QdrantClient class from qdrant_client module to connect to the vector database
 from qdrant_client import QdrantClient
 
-# Importa a classe BaseModel do módulo pydantic para validar os dados enviados para a API
+# Import BaseModel class from pydantic module to validate data sent to the API
 from pydantic import BaseModel
 
-# Importa a classe HuggingFaceEmbeddings do módulo langchain_huggingface para gerar as embeddings
+# Import HuggingFaceEmbeddings class from langchain_huggingface module to generate embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# Define a classe Item que herda de BaseModel
+# Define Item class that inherits from BaseModel
 class Item(BaseModel):
     query: str
 
-# Define o nome do modelo (tokenizador)
+# Define model name (tokenizer)
 model_name = "sentence-transformers/msmarco-bert-base-dot-v5"
 
-# Define os argumentos do modelo
+# Define model arguments
 model_kwargs = {'device': 'cpu'}
 
-# Define os argumentos de codificação
+# Define encoding arguments
 encode_kwargs = {'normalize_embeddings': True}
 
-# Cria uma instância de HuggingFaceEmbeddings
+# Create HuggingFaceEmbeddings instance
 hf = HuggingFaceEmbeddings(
     model_name = model_name,
     model_kwargs = model_kwargs,
     encode_kwargs = encode_kwargs)
 
-# Define a variável use_nvidia_api como False
+# Define use_nvidia_api variable as False
 use_nvidia_api = False
 
-# Verifica se a chave da Nvidia está disponível
+# Check if Nvidia key is available
 nvidia_key = os.getenv('NVIDIA_KEY')
+
 if nvidia_key:
 
-    # Importa a classe OpenAI do módulo openai
+    # Import OpenAI class from openai module
     from openai import OpenAI
     
-    # Cria uma instância de OpenAI com a URL base e a chave da API
+    # Create OpenAI instance with base URL and API key
     client_ai = OpenAI(base_url = "https://integrate.api.nvidia.com/v1", api_key = nvidia_key)
 
-    # Define use_nvidia_api como True
+    # Set use_nvidia_api to True
     use_nvidia_api = True
-
 else:
+    
+    # Print message indicating that LLM cannot be used
+    print("Cannot use LLM. NVIDIA_KEY not found in environment variables.")
 
-    # Imprime uma mensagem indicando que não é possível usar um LLM
-    print("Não é possível usar um LLM. NVIDIA_KEY não encontrada nas variáveis de ambiente.")
-
-# Cria uma instância para conectar ao banco vetorial
+# Create instance to connect to vector database
 client = QdrantClient("http://qdrant:6333")
 
-# Define o nome da coleção
+# Define collection name
 collection_name = "DSAVectorDB"
 
-# Cria uma instância de Qdrant para enviar os dados para o banco vetorial
+# Create Qdrant instance to send data to vector database
 qdrant = Qdrant(client, collection_name, hf)
 
-# Cria uma instância de FastAPI
+# Initialize FastAPI app
 app = FastAPI()
 
-# Define a rota raiz com o método GET
+# Define root route with GET method
 @app.get("/")
 async def root():
+    
     # Check Qdrant collection status
     try:
         collection_info = client.get_collection(collection_name)
         points_count = client.count(collection_name).count
         return {
-            "message": "DSA Projeto 9",
+            "message": "DSA Project 9",
             "collection_status": {
                 "name": collection_name,
                 "points_count": points_count,
@@ -92,34 +96,35 @@ async def root():
         }
     except Exception as e:
         return {
-            "message": "DSA Projeto 9",
+            "message": "DSA Project 9",
             "error": f"Failed to get collection status: {str(e)}"
         }
 
-# Define a rota /dsa_api com o método POST
+# Define /dsa_api route with POST method
 @app.post("/dsa_api")
 async def dsa_api(item: Item):
 
-    # Obtém a query do item
+    # Get query from item
     query = item.query
     
-    # Realiza a busca de similaridade
+    # Perform similarity search
     search_result = qdrant.similarity_search(query = query, k = 10)
     print(f"Similarity search results: {search_result}")  # Debug log
     
-    # Inicializa a lista de resultados, contexto e mapeamento
+    # Initialize results list, context and mapping
     list_res = []
     context = ""
     mappings = {}
     
-    # Constrói o contexto e a lista de resultados
+    # Build context and results list
     for i, res in enumerate(search_result):
+
         print(f"Processing result {i}: {res.page_content[:100]}...")  # Debug log
-        # Adiciona o conteúdo ao contexto
+        # Add content to context
         context += f"[{i}]\n{res.page_content}\n\n"
-        # Adiciona o mapeamento do ID para o caminho do documento
+        # Add ID to document path mapping
         mappings[i] = res.metadata.get("path", "")
-        # Adiciona o resultado à lista
+        # Add result to list
         list_res.append({
             "id": i,
             "path": res.metadata.get("path", ""),
@@ -129,16 +134,17 @@ async def dsa_api(item: Item):
     print(f"Final context: {context[:200]}...")  # Debug log
     print(f"Final list_res: {list_res}")  # Debug log
     
-    # Define a mensagem de sistema
+    # Define system message
     rolemsg = {"role": "system",
-               "content": "Responda à pergunta do usuário usando documentos fornecidos no contexto. No contexto estão documentos que devem conter uma resposta. Sempre faça referência ao ID do documento (entre colchetes, por exemplo [0],[1]) do documento que foi usado para fazer uma consulta. Use quantas citações e documentos forem necessários para responder à pergunta."}
+               "content": "Answer the user's question using documents provided in the context. The context contains documents that should contain an answer. Always reference the document ID (in brackets, for example [0],[1]) of the document used to make a query. Use as many citations and documents as necessary to answer the question."}
     
-    # Define as mensagens
+    # Define messages
     messages = [rolemsg, {"role": "user", "content": f"Documents:\n{context}\n\nQuestion: {query}"}]
     
-    # Verifica se a API da Nvidia está sendo usada
+    # Check if Nvidia API is being used
     if use_nvidia_api:
-        # Cria a instância do LLM usando a API da Nvidia
+
+        # Create LLM instance using Nvidia API
         resposta = client_ai.chat.completions.create(
             model = "meta/llama3-70b-instruct",
             messages = messages,
@@ -148,12 +154,12 @@ async def dsa_api(item: Item):
             stream = False
         )
         
-        # Obtém a resposta do LLM
+        # Get response from LLM
         response = resposta.choices[0].message.content
     else:
-        # Imprime uma mensagem indicando que não é possível usar um LLM
-        print("Não é possível usar um LLM.")
-        response = "Erro: LLM não disponível."
+        # Print message indicating that LLM cannot be used
+        print("Cannot use LLM.")
+        response = "Error: LLM not available."
     
     # Debug log
     print(f"Response: {response}")

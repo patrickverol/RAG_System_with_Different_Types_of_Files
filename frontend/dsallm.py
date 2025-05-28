@@ -1,35 +1,64 @@
-# Projeto 7 - Deploy de Aplicação de IA Generativa com Airflow, LLM, RAG, ElasticSearch e Grafana
+"""
+This module handles document ID generation, user input capture, and feedback collection.
+"""
 
-# Imports
+# Import hashlib for document ID generation
 import hashlib
+
+# Import database connection function
 from dsaconnection import postgre_connection
 
-# Função para gerar um ID único para o documento, combinando a consulta do usuário e a resposta gerada
-def dsa_gera_documento_id(userQuery, answer):
 
-    # Combina as primeiras 10 letras da consulta e da resposta para criar uma string única
+def dsa_gera_documento_id(userQuery: str, answer: str) -> str:
+    """
+    Generate a unique document ID by combining user query and generated answer.
+    
+    Args:
+        userQuery (str): The user's query text
+        answer (str): The generated answer text
+        
+    Returns:
+        str: A unique 8-character document ID generated from MD5 hash
+    """
+    
+    # Combine first 10 characters of query and answer
     combined = f"{userQuery[:10]}-{answer[:10]}"
     
-    # Gera um hash MD5 da string combinada
+    # Generate MD5 hash of combined string
     hash_object = hashlib.md5(combined.encode())
     
-    # Converte o hash em hexadecimal
+    # Convert hash to hexadecimal
     hash_hex = hash_object.hexdigest()
     
-    # Extrai os primeiros 8 caracteres do hash para usar como ID do documento
+    # Extract first 8 characters for document ID
     document_id = hash_hex[:8]
     
-    # Retorna o ID do documento
     return document_id
 
-# Função para capturar a entrada do usuário e salvar os dados de avaliação no banco de dados
-def dsa_captura_user_input(docId, userQuery, result, llmScore, responseTime):
 
-    # Estabelece a conexão e o cursor com o banco de dados PostgreSQL
+def dsa_captura_user_input(docId: str, userQuery: str, result: str, llmScore: float, responseTime: float) -> str:
+    """
+    Capture user input and save evaluation data to database.
+    
+    Args:
+        docId (str): Document ID
+        userQuery (str): User's query text
+        result (str): Generated result text
+        llmScore (float): LLM model score
+        responseTime (float): Response time in seconds
+        
+    Returns:
+        str: Confirmation message
+        
+    Note:
+        Creates dsa_avaliacao table if it doesn't exist
+    """
+    
+    # Establish database connection
     conn, cur = postgre_connection()
     
     try:
-        # Define a query SQL para criar a tabela de avaliação, se ainda não existir
+        # SQL query to create evaluation table if not exists
         create = """
             CREATE TABLE dsa_avaliacao (
                 id SERIAL PRIMARY KEY,
@@ -42,17 +71,16 @@ def dsa_captura_user_input(docId, userQuery, result, llmScore, responseTime):
             );
         """
 
-        # Executa a query de criação da tabela
+        # Execute table creation query
         cur.execute(create)
 
     except Exception as e:
-        # Em caso de erro, imprime a exceção e desfaz a transação
+        # Print exception and rollback transaction on error
         print(e)
         conn.rollback() 
 
     try:
-
-        # Define a query SQL para inserir os dados de avaliação na tabela
+        # SQL query to insert evaluation data
         sql = f"""
             INSERT INTO dsa_avaliacao
             (doc_id, user_input, result, llm_score, response_time)
@@ -60,31 +88,44 @@ def dsa_captura_user_input(docId, userQuery, result, llmScore, responseTime):
             ('{docId}', '{userQuery}', '{result}', {llmScore}, {responseTime})
         """
 
-        # Executa a query de inserção
+        # Execute insert query
         cur.execute(sql)
 
     except Exception as e:
-        # Em caso de erro, imprime a exceção e desfaz a transação
+        # Print exception and rollback transaction on error
         print(e)
         conn.rollback() 
 
-    # Confirma as operações e fecha a conexão com o banco de dados
+    # Commit operations and close database connection
     conn.commit()
     cur.close()
     conn.close()
     
-    # Retorna uma mensagem de confirmação da inserção
     return "Dados de Avaliação Inseridos"
 
-# Função para capturar o feedback do usuário e salvar no banco de dados
-def dsa_captura_user_feedback(docId, userQuery, result, feedback):
 
-    # Estabelece a conexão e o cursor com o banco de dados PostgreSQL
+def dsa_captura_user_feedback(docId: str, userQuery: str, result: str, feedback: bool) -> str:
+    """
+    Capture user feedback and save to database.
+    
+    Args:
+        docId (str): Document ID
+        userQuery (str): User's query text
+        result (str): Generated result text
+        feedback (bool): User satisfaction feedback (True/False)
+        
+    Returns:
+        str: Confirmation message
+        
+    Note:
+        Creates dsa_feedback table if it doesn't exist
+    """
+    
+    # Establish database connection
     conn, cur = postgre_connection()
     
     try:
-
-        # Define a query SQL para criar a tabela de feedback, se ainda não existir
+        # SQL query to create feedback table if not exists
         create = """
             CREATE TABLE dsa_feedback (
                 id SERIAL PRIMARY KEY,
@@ -96,17 +137,16 @@ def dsa_captura_user_feedback(docId, userQuery, result, feedback):
             );
         """
 
-        # Executa a query de criação da tabela
+        # Execute table creation query
         cur.execute(create)
 
     except Exception as e:
-        # Em caso de erro, imprime a exceção e desfaz a transação
+        # Print exception and rollback transaction on error
         print(e)
         conn.rollback() 
 
     try:
-
-        # Define a query SQL para inserir os dados de feedback na tabela
+        # SQL query to insert feedback data
         sql = f"""
             INSERT INTO dsa_feedback
             (doc_id, user_input, result, is_satisfied)
@@ -114,18 +154,17 @@ def dsa_captura_user_feedback(docId, userQuery, result, feedback):
             ('{docId}', '{userQuery}', '{result}', {feedback})
         """
 
-        # Executa a query de inserção
+        # Execute insert query
         cur.execute(sql)
 
     except Exception as e:
-        # Em caso de erro, imprime a exceção e desfaz a transação
+        # Print exception and rollback transaction on error
         print(e)
         conn.rollback() 
 
-    # Confirma as operações e fecha a conexão com o banco de dados
+    # Commit operations and close database connection
     conn.commit()
     cur.close()
     conn.close()
 
-    # Retorna uma mensagem de confirmação da inserção
     return "Dados de Feedback Inseridos"

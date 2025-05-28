@@ -1,53 +1,64 @@
-# Projeto 9 - IA Generativa e RAG Para App de Sistema Inteligente de Busca em Documentos - Backend e API
-# Módulo de RAG
+"""
+RAG Module
+This module implements the Retrieval-Augmented Generation (RAG) system.
+It handles document indexing, text extraction from various file formats,
+and integration with the vector database for semantic search.
+"""
 
-# Importa o módulo sys para acessar os argumentos da linha de comando
-import sys
-
-# Importa o módulo docx para manipulação de arquivos Word
+# Import docx module for Word file manipulation
 import docx
 
-# Importa o módulo PyPDF2 para manipulação de arquivos PDF
+# Import PyPDF2 module for PDF file manipulation
 import PyPDF2
 
-# Importa o módulo Presentation do pacote pptx para manipulação de arquivos PowerPoint
+# Import Presentation from pptx package for PowerPoint file manipulation
 from pptx import Presentation
 
-# Importa as funções listdir, isfile, join e isdir dos módulos os e os.path para manipulação de diretórios e arquivos
-from os import listdir
-from os.path import isfile, join, isdir
-
-# Importa a classe TokenTextSplitter do pacote langchain_text_splitters para a divisão do texto em tokens
+# Import TokenTextSplitter for text tokenization
 from langchain_text_splitters import TokenTextSplitter
 
-# Importa a classe HuggingFaceEmbeddings do pacote langchain_huggingface para criar as embeddings
+# Import HuggingFaceEmbeddings for creating embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# Importa as classes QdrantClient, Distance e VectorParams do pacote qdrant_client
-# Criaremos o cliente de acesso ao Qdrant, definindo os parâmetros de armazenamento no banco vetorial
+# Import Qdrant classes for vector database operations
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
-# Importa a classe Qdrant do pacote langchain_qdrant para criar uma instância do Qdrant e enviar os dados para o banco vetorial
+# Import Qdrant for vector database integration
 from langchain_qdrant import Qdrant
 
-# Importa o módulo de storage
+# Import storage module
 from storage import get_storage
 
-# Importa os módulos necessários
+# Import required modules
 import os
-import tempfile
 
-# Define a função que carrega o texto de um arquivo Word
+
 def dsa_carrega_texto_word(arquivoname):
-    """Carrega o texto de um arquivo Word."""
+    """
+    Load text content from a Word document.
+    
+    Args:
+        arquivoname (str): Path to the Word document
+        
+    Returns:
+        str: Extracted text content from the document
+    """
     doc = docx.Document(arquivoname)
     fullText = [para.text for para in doc.paragraphs]
     return '\n'.join(fullText)
 
-# Define a função que carrega o texto de um arquivo PowerPoint
+
 def dsa_carrega_texto_pptx(arquivoname):
-    """Carrega o texto de um arquivo PowerPoint."""
+    """
+    Load text content from a PowerPoint presentation.
+    
+    Args:
+        arquivoname (str): Path to the PowerPoint file
+        
+    Returns:
+        str: Extracted text content from the presentation
+    """
     prs = Presentation(arquivoname)
     fullText = []
     for slide in prs.slides:
@@ -56,112 +67,127 @@ def dsa_carrega_texto_pptx(arquivoname):
                 fullText.append(shape.text)
     return '\n'.join(fullText)
 
-# Define a função principal para indexação dos documentos
+
 def main_indexing(storage_config):
-    """Função principal para indexação dos documentos."""
-    # Inicializa o storage
+    """
+    Main function for document indexing.
+    Processes documents from storage, extracts text, and indexes them in the vector database.
+    
+    Args:
+        storage_config (dict): Configuration for document storage
+            - storage_type: Type of storage ('local', 's3', or 'http')
+            - base_path: Base path for local storage
+            - bucket_name: S3 bucket name (for S3 storage)
+            - region_name: AWS region (for S3 storage)
+            - endpoint_url: S3 endpoint URL (for S3 storage)
+            - base_url: Base URL for HTTP storage
+    """
+    # Initialize storage
     storage = get_storage(**storage_config)
     
-    # Define o nome do modelo a ser usado para criar as embeddings
+    # Define model parameters for embeddings
     model_name = "sentence-transformers/msmarco-bert-base-dot-v5"
     model_kwargs = {'device': 'cpu'}
     encode_kwargs = {'normalize_embeddings': True}
 
-    # Inicializa a classe de embeddings do HuggingFace
+    # Initialize HuggingFace embeddings
     hf = HuggingFaceEmbeddings(
         model_name=model_name,
         model_kwargs=model_kwargs,
         encode_kwargs=encode_kwargs
     )
 
-    # Inicializa o cliente Qdrant
+    # Initialize Qdrant client
     client = QdrantClient("http://qdrant:6333")
     collection_name = "DSAVectorDB"
 
-    # Se a coleção já existir, exclui
+    # Delete collection if it exists
     if client.collection_exists(collection_name):
         client.delete_collection(collection_name)
 
-    # Cria uma nova coleção com parâmetros especificados
+    # Create new collection with specified parameters
     client.create_collection(
         collection_name,
         vectors_config=VectorParams(size=768, distance=Distance.DOT)
     )
 
-    # Inicializa a instância Qdrant
+    # Initialize Qdrant instance
     qdrant = Qdrant(client, collection_name, hf)
 
-    print("\nIndexando os documentos...\n")
+    print("\nIndexing documents...\n")
 
-    # Obtém a lista de todos os documentos
+    # Get list of all documents
     lista_arquivos = storage.list_documents()
     
-    # Itera sobre cada arquivo na lista
+    # Process each file in the list
     for arquivo in lista_arquivos:
+        
         try:
-            # Obtém o documento do storage
+            # Get document from storage
             temp_file = storage.get_document(arquivo)
             
             try:
                 arquivo_content = ""
                 
-                # Verifica se o arquivo é um PDF
+                # Process PDF files
                 if arquivo.endswith(".pdf"):
-                    print("Indexando: " + arquivo)
+                    print("Indexing: " + arquivo)
                     reader = PyPDF2.PdfReader(temp_file)
                     for page in reader.pages:
                         arquivo_content += " " + page.extract_text()
                 
-                # Verifica se o arquivo é um texto simples
+                # Process text files
                 elif arquivo.endswith(".txt"):
-                    print("Indexando: " + arquivo)
+                    print("Indexing: " + arquivo)
                     with open(temp_file, 'r') as f:
                         arquivo_content = f.read()
                 
-                # Verifica se o arquivo é um Word
+                # Process Word documents
                 elif arquivo.endswith(".docx"):
-                    print("Indexando: " + arquivo)
+                    print("Indexing: " + arquivo)
                     arquivo_content = dsa_carrega_texto_word(temp_file)
                 
-                # Verifica se o arquivo é um PowerPoint
+                # Process PowerPoint presentations
                 elif arquivo.endswith(".pptx"):
-                    print("Indexando: " + arquivo)
+                    print("Indexing: " + arquivo)
                     arquivo_content = dsa_carrega_texto_pptx(temp_file)
                 
                 else:
                     continue
 
-                # Inicializa o divisor de texto
+                # Initialize text splitter
                 text_splitter = TokenTextSplitter(chunk_size=500, chunk_overlap=50)
                 textos = text_splitter.split_text(arquivo_content)
                 metadata = [{"path": arquivo} for _ in textos]
                 qdrant.add_texts(textos, metadatas=metadata)
 
             finally:
-                # Remove o arquivo temporário
+
+                # Remove temporary file
                 os.unlink(temp_file)
 
         except Exception as e:
-            print(f"O processo falhou para o arquivo {arquivo}: {e}")
+            print(f"Process failed for file {arquivo}: {e}")
 
-    print("\nIndexação Concluída!\n")
+    print("\nIndexing Completed!\n")
 
-# Verifica se o script está sendo executado diretamente
+
 if __name__ == "__main__":
-    # Configuração do storage
+
+    # Configure storage
     storage_config = {
         'storage_type': os.getenv('STORAGE_TYPE', 'local'),
         'base_path': os.getenv('DOCUMENTS_PATH', '/app/documents')
     }
     
-    # Se for S3, adiciona as configurações específicas
+    # Add S3 specific configurations if needed
     if storage_config['storage_type'] == 's3':
         storage_config.update({
             'bucket_name': os.getenv('S3_BUCKET_NAME'),
             'region_name': os.getenv('AWS_REGION'),
             'endpoint_url': os.getenv('S3_ENDPOINT_URL')
         })
-    # Se for HTTP, adiciona a URL base
+    # Add HTTP base URL if needed
     elif storage_config['storage_type'] == 'http':
         storage_config['base_url'] = os.getenv('DOCUMENT_STORAGE_URL', 'http://document_storage:8080')
     
