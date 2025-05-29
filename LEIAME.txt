@@ -36,6 +36,8 @@ Como funciona a compra direta de ações na Nasdaq?
 
 O que é NASDAQ-100?
 
+What is a broker ?
+
 # 7- Abra o navegador e acesse o Grafana para carregar o dashboard. Siga as instruções das aulas para ajustar a configuração:
 
 localhost:3000

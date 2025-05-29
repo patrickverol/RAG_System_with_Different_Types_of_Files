@@ -39,12 +39,40 @@ def main():
     Handles user interface, document queries, and feedback collection.
     """
     
-    # Configure page title and settings
-    st.set_page_config(page_title="RAG Project", page_icon=":100:", layout="centered")
+    # Configure Streamlit page
+    st.set_page_config(page_title="RAG Project", page_icon=":100:", layout="wide")
 
     # Set application title
-    st.title('_:green[RAG - Project]_')
-    st.title('_:blue[Busca com IA Generativa e RAG]_')
+    st.title('🤖 RAG Project')
+    st.title('🔍 Search Engine with Generative AI and RAG')
+
+    # Sidebar with instructions
+    st.sidebar.title("Instructions")
+    st.sidebar.markdown("""
+    ### How to Use the App:
+    - Type a question in the text input field.
+    - Click on the "Send" button.
+    - View the answer and the documents used to answer the question.
+    - Click on the "Satisfied" button if you are satisfied with the answer.
+    - Click on the "Not Satisfied" button if you are not satisfied with the answer.
+    - Click on the "Download" button to download the document.
+
+    ### Available files:
+    - PDF
+    - DOCX
+    - DOC
+    - TXT
+    - PPTX
+    - PPT
+
+    ### Purpose:
+    This application provides a search engine for documents. You can search for documents by typing a question in the text input field. Download the document to view the reference content.
+    """)
+
+    # Support button in sidebar
+    if st.sidebar.button("Support"):
+        st.sidebar.write("For any questions, please contact: patrickverol@gmail.com")
+
 
     # Configure storage
     storage_config = {
@@ -80,17 +108,21 @@ def main():
     if 'feedbackSubmitted' not in st.session_state:
         st.session_state.feedbackSubmitted = False
 
-    # Create text input for questions
-    question = st.text_input("Digite Uma Pergunta Para a IA Executar Consulta nos Documentos:", "")
+    # Create text input for questions with a default example
+    question = st.text_input(
+        "Type a question to execute a query on the documents:",
+        value="What is a broker?",
+        help="Example questions: 'What is a stock?', 'What are the key investment strategies?'"
+    )
 
-    # Check if "Enviar" button was clicked
-    if st.button("Enviar"):
+    # Check if "Send" button was clicked
+    if st.button("Send"):
         if not question:
-            st.warning("Digite sua pergunta para continuar.")
+            st.warning("Type your question to continue.")
             return
             
         # Display the question
-        st.write("A pergunta foi: \"", question+"\"")
+        st.write("The question was: \"", question+"\"")
         
         # Define API URL
         url = "http://backend:8000/rag_api"
@@ -114,15 +146,15 @@ def main():
             
             # Check if response is empty
             if not response.text:
-                st.error("A API retornou uma resposta vazia. Verifique o backend.")
+                st.error("The API returned an empty response. Check the backend.")
                 return
                 
             # Try to parse JSON
             try:
                 response_data = json.loads(response.text)
             except json.JSONDecodeError as e:
-                st.error(f"Erro ao decodificar resposta JSON: {str(e)}")
-                print(f"Resposta recebida: {response.text}")
+                st.error(f"Error decoding JSON response: {str(e)}")
+                print(f"Received response: {response.text}")
                 return
                 
             end_time = time.time()    # End time measurement
@@ -131,7 +163,7 @@ def main():
             # Get API response and extract answer text
             answer = response_data.get("answer")
             if not answer:
-                st.error("A resposta da API não contém o campo 'answer'")
+                st.error("The API response does not contain the 'answer' field")
                 return
                 
             score = response_data.get("score", 1.0)  # Get response score, default to 1.0 if not present
@@ -245,29 +277,29 @@ def main():
 
             except Exception as e:
                 print(e)
-                st.error("Erro ao processar a avaliação. Verifique o Qdrant e tente novamente.")
+                st.error("Error processing the evaluation. Check the Qdrant and try again.")
 
         except requests.exceptions.RequestException as e:
-            st.error(f"Erro na requisição à API: {str(e)}")
+            st.error(f"Error in the API request: {str(e)}")
         except Exception as e:
-            st.error(f"Erro inesperado: {str(e)}")
+            st.error(f"Unexpected error: {str(e)}")
 
-    # Display query result and feedback outside the "Enviar" button block
+    # Display query result and feedback outside the "Send" button block
     if st.session_state.result:
         # Satisfaction feedback section
         if not st.session_state.feedbackSubmitted:
-            st.write("Você está satisfeito com a resposta?")
+            st.write("Are you satisfied with the answer?")
             feedback_col1, feedback_col2 = st.columns(2)
             with feedback_col1:
-                if st.button("Satisfeito"):
+                if st.button("Satisfied"):
                     captura_user_feedback(st.session_state.docId, st.session_state.userInput, st.session_state.result, True)
                     st.session_state.feedbackSubmitted = True
-                    st.success("Feedback registrado: Satisfeito")
+                    st.success("Feedback registered: Satisfied")
             with feedback_col2:
-                if st.button("Não Satisfeito"):
+                if st.button("Not Satisfied"):
                     captura_user_feedback(st.session_state.docId, st.session_state.userInput, st.session_state.result, False)
                     st.session_state.feedbackSubmitted = True
-                    st.warning("Feedback registrado: Não Satisfeito")
+                    st.warning("Feedback registered: Not Satisfied")
 
 
 if __name__ == "__main__":

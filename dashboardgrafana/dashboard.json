@@ -82,7 +82,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  COUNT(*) Total_Question_Answered\r\nFROM dsa_avaliacao \r\n--GROUP BY 1",
+          "rawSql": "SELECT \r\n  COUNT(*) Total_Question_Answered\r\nFROM avaliacao \r\n--GROUP BY 1",
           "refId": "A",
           "sql": {
             "columns": [
@@ -104,7 +104,7 @@
           "table": "evaluation_data"
         }
       ],
-      "title": "Total de Perguntas Respondidas",
+      "title": "Total of Questions Answered",
       "type": "stat"
     },
     {
@@ -168,7 +168,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  COUNT(*) Users_Filled_Feedback\r\nFROM dsa_feedback ",
+          "rawSql": "SELECT \r\n  COUNT(*) Users_Filled_Feedback\r\nFROM feedback ",
           "refId": "A",
           "sql": {
             "columns": [
@@ -189,7 +189,7 @@
           }
         }
       ],
-      "title": "Feedbacks Preenchidos Pelos Usuários",
+      "title": "Feedbacks Filled by Users",
       "type": "stat"
     },
     {
@@ -254,7 +254,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n\r\n  COUNT(CASE WHEN is_satisfied = TRUE THEN id ELSE NULL END)/COUNT(id)::float AS Users_Satisfaction\r\nFROM dsa_feedback ",
+          "rawSql": "SELECT \r\n\r\n  COUNT(CASE WHEN is_satisfied = TRUE THEN id ELSE NULL END)/COUNT(id)::float AS Users_Satisfaction\r\nFROM feedback ",
           "refId": "A",
           "sql": {
             "columns": [
@@ -275,7 +275,7 @@
           }
         }
       ],
-      "title": "Taxa de Satisfação dos Usuários com o LLM",
+      "title": "Users Satisfaction with the LLM",
       "type": "stat"
     },
     {
@@ -368,7 +368,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \r\n  created_time,\r\n  response_time\r\nFROM dsa_avaliacao ",
+          "rawSql": "SELECT \r\n  created_time,\r\n  response_time\r\nFROM avaliacao ",
           "refId": "A",
           "sql": {
             "columns": [
@@ -389,7 +389,7 @@
           }
         }
       ],
-      "title": "Tempo de Resposta do LLM",
+      "title": "Time of Response of the LLM",
       "type": "timeseries"
     }
   ],
@@ -406,7 +406,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Monitoramento do LLM do Projeto 7 DSA Copy",
+  "title": "Monitoring the RAG Project",
   "uid": "4f685e56-44ef-43b7-b865-183ef4441244",
   "version": 1
 }
