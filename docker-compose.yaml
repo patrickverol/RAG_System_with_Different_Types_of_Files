@@ -107,15 +107,15 @@ services:
 
   postgres:
     image: postgres:13
-    container_name: airflow_postgres
+    container_name: rag_postgres
     environment:
-      POSTGRES_USER: airflow
-      POSTGRES_PASSWORD: airflow
-      POSTGRES_DB: airflow
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: admin
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: ["CMD", "pg_isready", "-U", "admin"]
       interval: 10s
       retries: 5
       start_period: 5s
@@ -126,7 +126,7 @@ services:
 
   grafana:
     image: grafana/grafana
-    container_name: grafana
+    container_name: rag_grafana
     ports:
       - '3000:3000'
     environment:

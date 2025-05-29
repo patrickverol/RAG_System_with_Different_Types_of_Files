@@ -21,9 +21,9 @@ def postgre_connection():
     
     # Create connection to PostgreSQL database
     conn = psycopg2.connect(
-        dbname="airflow",
-        user="airflow",
-        password="airflow",
+        dbname="admin",
+        user="admin",
+        password="admin",
         host="postgres", 
         port="5432"
     )
