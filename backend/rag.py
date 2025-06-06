@@ -5,6 +5,12 @@ It handles document indexing, text extraction from various file formats,
 and integration with the vector database for semantic search.
 """
 
+#import csv
+
+import csv
+
+
+
 # Import docx module for Word file manipulation
 import docx
 
@@ -164,6 +170,18 @@ def main_indexing(storage_config):
                 elif arquivo.endswith(".pptx"):
                     print("Processing PowerPoint presentation")
                     arquivo_content = carrega_texto_pptx(temp_file)
+
+                # Process CSV files
+                elif arquivo.endswith(".csv"):
+                    print("Processing CSV file ....")
+                    rows = []
+                    with open(temp_file, 'r', encoding='utf-8') as csvfile:
+                        reader = csv.reader(csvfile)
+                        for row in reader:
+                            # Join each cell with a space, then append
+                            rows.append(" ".join(row))
+                    arquivo_content = "\n".join(rows)
+                    print(f"Extracted {len(rows)} CSV rows as text")
                 
                 else:
                     print(f"Skipping unsupported file type: {arquivo}")
